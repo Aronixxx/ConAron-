@@ -1,0 +1,9 @@
+CONARON - GOOGLE PLAY
+
+1. Abre esta carpeta ConAronAndroid con Android Studio.
+2. Deja que Android Studio instale/sincronice Android SDK 36 y Gradle.
+3. Build > Generate Signed App Bundle or APK > Android App Bundle.
+4. Crea o selecciona tu Upload Key y genera release.
+5. El archivo resultante app-release.aab se sube a Google Play Console.
+
+Antes de probar Inicio con Google desde la app, sube a cPanel los 3 archivos de la carpeta CPanel_Android_Login_Patch junto a los archivos actuales de ConAron.
