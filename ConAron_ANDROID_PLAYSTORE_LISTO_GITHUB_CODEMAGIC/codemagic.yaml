@@ -6,54 +6,141 @@ workflows:
 
     environment:
       java: 17
-      vars:
-        PACKAGE_NAME: "pe.conaron.app"
+
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
 
     scripts:
-      - name: Buscar proyecto ConAron
+      - name: Buscar proyecto Android
         script: |
           set -e
 
-          PROJECT_DIR="$(find "$CM_BUILD_DIR" -type f -name settings.gradle -print -quit | xargs -I{} dirname "{}")"
+          echo "========================================"
+          echo "BUSCANDO PROYECTO ANDROID"
+          echo "========================================"
 
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: No se encontro settings.gradle"
-            find "$CM_BUILD_DIR" -maxdepth 6 -type f | sort
+          echo "Directorio de Codemagic:"
+          echo "$CM_BUILD_DIR"
+
+          echo ""
+          echo "Archivos encontrados:"
+          find "$CM_BUILD_DIR" -maxdepth 6 -type f | sort | head -200
+
+          GRADLEW_PATH=$(find "$CM_BUILD_DIR" -type f -name "gradlew" -print -quit)
+
+          if [ -z "$GRADLEW_PATH" ]; then
+            echo ""
+            echo "ERROR: No se encontro el archivo gradlew."
+            echo "El proyecto Android no esta correctamente subido a GitHub."
             exit 1
           fi
 
-          echo "Proyecto encontrado:"
+          PROJECT_DIR=$(dirname "$GRADLEW_PATH")
+
+          echo ""
+          echo "Proyecto Android encontrado en:"
           echo "$PROJECT_DIR"
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
 
-      - name: Preparar Gradle 8.11.1
+      - name: Verificar proyecto
         script: |
           set -e
+
+          echo "========================================"
+          echo "VERIFICANDO PROYECTO"
+          echo "========================================"
+
           cd "$PROJECT_DIR"
 
-          if [ ! -f gradlew ]; then
-            curl -L --fail --retry 3 \
-              https://services.gradle.org/distributions/gradle-8.11.1-bin.zip \
-              -o /tmp/gradle.zip
+          echo "Directorio actual:"
+          pwd
 
-            unzip -oq /tmp/gradle.zip -d /tmp
+          echo ""
+          echo "Contenido:"
+          ls -la
 
-            /tmp/gradle-8.11.1/bin/gradle wrapper \
-              --gradle-version 8.11.1
+          if [ ! -f "gradlew" ]; then
+            echo "ERROR: No existe gradlew."
+            exit 1
           fi
 
-          chmod +x gradlew
-          ./gradlew --version
+          if [ ! -d "app" ]; then
+            echo "ERROR: No existe la carpeta app."
+            exit 1
+          fi
 
-      - name: Compilar ConAron AAB
+          if [ ! -f "settings.gradle" ] && [ ! -f "settings.gradle.kts" ]; then
+            echo "ERROR: No existe settings.gradle ni settings.gradle.kts."
+            exit 1
+          fi
+
+          echo ""
+          echo "Proyecto Android verificado correctamente."
+
+      - name: Configurar Android SDK
         script: |
           set -e
+
+          echo "========================================"
+          echo "CONFIGURANDO ANDROID SDK"
+          echo "========================================"
+
           cd "$PROJECT_DIR"
-          ./gradlew clean bundleRelease --stacktrace
+
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+          echo "Android SDK configurado."
+          cat local.properties
+
+      - name: Preparar Gradle
+        script: |
+          set -e
+
+          echo "========================================"
+          echo "PREPARANDO GRADLE"
+          echo "========================================"
+
+          cd "$PROJECT_DIR"
+
+          chmod +x gradlew
+
+          ./gradlew --version
+
+      - name: Limpiar proyecto
+        script: |
+          set -e
+
+          echo "========================================"
+          echo "LIMPIANDO PROYECTO"
+          echo "========================================"
+
+          cd "$PROJECT_DIR"
+
+          ./gradlew clean
+
+      - name: Generar AAB Release
+        script: |
+          set -e
+
+          echo "========================================"
+          echo "GENERANDO CONARON AAB"
+          echo "========================================"
+
+          cd "$PROJECT_DIR"
+
+          ./gradlew bundleRelease --stacktrace
+
+          echo ""
+          echo "========================================"
+          echo "BUSCANDO AAB GENERADO"
+          echo "========================================"
+
+          find "$PROJECT_DIR" -type f -name "*.aab" -print
 
     artifacts:
-      - "**/app/build/outputs/bundle/release/*.aab"
-      - "**/app/build/outputs/apk/release/*.apk"
+      - "**/app/build/outputs/**/*.aab"
+      - "**/app/build/outputs/**/*.apk"
       - "**/app/build/outputs/**/mapping.txt"
