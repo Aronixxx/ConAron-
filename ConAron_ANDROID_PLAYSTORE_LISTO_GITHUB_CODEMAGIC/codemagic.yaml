@@ -9,61 +9,45 @@ workflows:
       vars:
         PACKAGE_NAME: "pe.conaron.app"
 
-    cache:
-      cache_paths:
-        - $HOME/.gradle/caches
-        - $HOME/.gradle/wrapper
-
     scripts:
-      - name: Localizar proyecto Android
+      - name: Buscar proyecto ConAron
         script: |
           set -e
-          echo "Raiz del repositorio: $CM_BUILD_DIR"
 
-          if [ -d "$CM_BUILD_DIR/ConAron_Android_PlayStore/ConAronAndroid" ]; then
-            PROJECT_DIR="$CM_BUILD_DIR/ConAron_Android_PlayStore/ConAronAndroid"
-          elif [ -d "$CM_BUILD_DIR/ConAronAndroid" ]; then
-            PROJECT_DIR="$CM_BUILD_DIR/ConAronAndroid"
-          elif [ -f "$CM_BUILD_DIR/ConAron_ANDROID_PLAYSTORE_PROYECTO_COMPLETO.zip" ]; then
-            mkdir -p "$CM_BUILD_DIR/_conaron_extract"
-            unzip -oq "$CM_BUILD_DIR/ConAron_ANDROID_PLAYSTORE_PROYECTO_COMPLETO.zip" -d "$CM_BUILD_DIR/_conaron_extract"
-            PROJECT_DIR="$CM_BUILD_DIR/_conaron_extract/ConAron_Android_PlayStore/ConAronAndroid"
-          else
-            PROJECT_DIR="$(find "$CM_BUILD_DIR" -type f -name settings.gradle -print -quit | xargs -I{} dirname "{}")"
-          fi
+          PROJECT_DIR="$(find "$CM_BUILD_DIR" -type f -name settings.gradle -print -quit | xargs -I{} dirname "{}")"
 
-          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/settings.gradle" ]; then
-            echo "ERROR: No se encontro el proyecto Android."
-            echo "Contenido del repositorio:"
-            find "$CM_BUILD_DIR" -maxdepth 4 -type f | sort | head -200
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: No se encontro settings.gradle"
+            find "$CM_BUILD_DIR" -maxdepth 6 -type f | sort
             exit 1
           fi
 
-          echo "Proyecto Android encontrado en: $PROJECT_DIR"
+          echo "Proyecto encontrado:"
+          echo "$PROJECT_DIR"
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
-          ls -la "$PROJECT_DIR"
 
       - name: Preparar Gradle 8.11.1
         script: |
           set -e
           cd "$PROJECT_DIR"
 
-          if [ -f ./gradlew ]; then
-            chmod +x ./gradlew
-          else
+          if [ ! -f gradlew ]; then
             curl -L --fail --retry 3 \
               https://services.gradle.org/distributions/gradle-8.11.1-bin.zip \
-              -o /tmp/gradle-8.11.1-bin.zip
-            rm -rf /tmp/gradle-8.11.1
-            unzip -oq /tmp/gradle-8.11.1-bin.zip -d /tmp
-            /tmp/gradle-8.11.1/bin/gradle wrapper --gradle-version 8.11.1
-            chmod +x ./gradlew
+              -o /tmp/gradle.zip
+
+            unzip -oq /tmp/gradle.zip -d /tmp
+
+            /tmp/gradle-8.11.1/bin/gradle wrapper \
+              --gradle-version 8.11.1
           fi
 
+          chmod +x gradlew
           ./gradlew --version
 
-      - name: Compilar ConAron
+      - name: Compilar ConAron AAB
         script: |
           set -e
           cd "$PROJECT_DIR"
