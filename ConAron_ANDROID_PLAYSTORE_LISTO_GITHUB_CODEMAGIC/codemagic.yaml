@@ -4,33 +4,23 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
 
+    working_directory: ConAron_ANDROID_PLAYSTORE_LISTO_GITHUB_CODEMAGIC/ConAron_Android_PlayStore/ConAronAndroid
+
     environment:
       java: 17
 
     cache:
       cache_paths:
         - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
 
     scripts:
-      - name: Verificar proyecto ConAron
+      - name: Verificar ubicación
         script: |
-          set -e
-
-          PROJECT_DIR="$CM_BUILD_DIR/ConAron_ANDROID_PLAYSTORE_LISTO_GITHUB_CODEMAGIC/ConAron_Android_PlayStore/ConAronAndroid"
-
-          echo "Proyecto esperado:"
-          echo "$PROJECT_DIR"
-
-          if [ ! -d "$PROJECT_DIR" ]; then
-            echo "ERROR: No existe la carpeta del proyecto."
-            echo "Contenido del repositorio:"
-            find "$CM_BUILD_DIR" -maxdepth 5 -type d | sort
-            exit 1
-          fi
-
-          cd "$PROJECT_DIR"
-
-          echo "Contenido del proyecto:"
+          echo "DIRECTORIO ACTUAL:"
+          pwd
+          echo ""
+          echo "CONTENIDO:"
           ls -la
 
           test -f settings.gradle || {
@@ -48,54 +38,41 @@ workflows:
             exit 1
           }
 
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
-
-          echo "Proyecto encontrado correctamente."
+          echo "Proyecto ConAron encontrado correctamente"
 
       - name: Configurar Android SDK
         script: |
-          set -e
-
-          cd "$PROJECT_DIR"
-
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-
-          echo "Contenido de local.properties:"
+          echo "SDK configurado:"
           cat local.properties
 
-      - name: Preparar Gradle 8.11.1
+      - name: Preparar Gradle
         script: |
-          set -e
+          if [ ! -f gradlew ]; then
+            echo "Gradle Wrapper no existe. Creandolo..."
 
-          echo "Descargando Gradle 8.11.1..."
+            curl -L --fail --retry 3 \
+              https://services.gradle.org/distributions/gradle-8.11.1-bin.zip \
+              -o /tmp/gradle-8.11.1-bin.zip
 
-          curl -L --fail --retry 3 \
-            https://services.gradle.org/distributions/gradle-8.11.1-bin.zip \
-            -o /tmp/gradle-8.11.1-bin.zip
+            rm -rf /tmp/gradle-8.11.1
+            unzip -q /tmp/gradle-8.11.1-bin.zip -d /tmp
 
-          rm -rf /tmp/gradle-8.11.1
+            /tmp/gradle-8.11.1/bin/gradle wrapper \
+              --gradle-version 8.11.1
+          fi
 
-          unzip -q /tmp/gradle-8.11.1-bin.zip -d /tmp
+          chmod +x gradlew
 
-          /tmp/gradle-8.11.1/bin/gradle --version
+          ./gradlew --version
 
-      - name: Generar ConAron AAB
+      - name: Generar Android App Bundle
         script: |
-          set -e
-
-          cd "$PROJECT_DIR"
-
-          echo "Compilando ConAron..."
-
-          /tmp/gradle-8.11.1/bin/gradle \
-            clean \
-            bundleRelease \
-            --stacktrace
+          ./gradlew clean bundleRelease --stacktrace
 
           echo ""
-          echo "AAB encontrados:"
-          find "$PROJECT_DIR" -type f -name "*.aab" -print
+          echo "AAB GENERADOS:"
+          find app/build/outputs -type f -name "*.aab" -print || true
 
     artifacts:
       - ConAron_ANDROID_PLAYSTORE_LISTO_GITHUB_CODEMAGIC/ConAron_Android_PlayStore/ConAronAndroid/app/build/outputs/**/*.aab
