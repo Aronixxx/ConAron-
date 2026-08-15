@@ -1,0 +1,32 @@
+workflows:
+  conaron-android:
+    name: ConAron Android AAB
+    working_directory: ConAron_Android_PlayStore/ConAronAndroid
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      java: 17
+      vars:
+        PACKAGE_NAME: "pe.conaron.app"
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+    scripts:
+      - name: Configurar Android SDK
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+      - name: Preparar Gradle
+        script: |
+          if [ ! -f gradlew ]; then
+            curl -L --fail --retry 3 https://services.gradle.org/distributions/gradle-8.11.1-bin.zip -o /tmp/gradle-8.11.1-bin.zip
+            unzip -q /tmp/gradle-8.11.1-bin.zip -d /tmp
+            /tmp/gradle-8.11.1/bin/gradle wrapper --gradle-version 8.11.1
+          fi
+          chmod +x gradlew
+      - name: Generar Android App Bundle
+        script: |
+          ./gradlew clean bundleRelease
+    artifacts:
+      - app/build/outputs/**/*.aab
+      - app/build/outputs/**/mapping.txt
